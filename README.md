@@ -9,6 +9,7 @@
 这是一款使用 `golang + vue` 编写的基于 onedrive 的**在线共享网盘**  
 效果展示：https://gonelist.cugxuan.cn  
 前端项目地址：https://github.com/Sillywa/gonelist-web  
+详细文档地址：https://gonelist-doc.cugxuan.cn  
 有问题请提 issue，也可以进入 QQ 群交流，群号：1083165608
 
 # 功能特性
@@ -23,6 +24,7 @@
 - 「多平台」，支持个人版、教育账号、世纪互联等
 - 「README」，支持页面添加 README
 - 「加密目录」，支持给目录加密
+- 「登陆缓存」，登陆 onedrive 之后会有缓存，下次直接启动无需登录
 - ...
 
 注：支持绝大部分教育账号，部分 **教育账号** 因为需要管理员同意无法使用
@@ -34,10 +36,10 @@
 如果您的**整个微软账号和 onedrive 网盘**内，**没有隐私内容**，可以按照下面的流程快速配置体验效果，完整的下载安装流程请看 [安装文档](https://gonelist-doc.cugxuan.cn)
 
 ## 快速配置体验
-下载 [Github Release](https://github.com/cugxuan/GOIndex/releases) 或者 [gonelist-release](https://gonelist.cugxuan.cn/#/gonelist-release) 中对应的包，直接运行即可启动，以 Linux 系统本地启动为例
+下载 [Github Release](https://github.com/cugxuan/gonelist/releases) 或者 [gonelist-release](https://gonelist.cugxuan.cn/#/gonelist-release) 中对应的包，Linux 系统下载 gonelist_linux_amd64.tar.gz，直接运行即可启动，以 Linux 系统本地启动为例
 ```
-// 下载对应的安装包，也可下载 gonelist-release 中的包
-$ wget https://github.com/cugxuan/gonelist/releases/download/v0.4/gonelist_linux_amd64.tar.gz
+// 下载对应的安装包，也可下载 gonelist-release 中的包，下面命令不一定是最新版本
+$ wget https://github.com/cugxuan/gonelist/releases/download/v0.4.1/gonelist_linux_amd64.tar.gz
 $ tar -zxf gonelist_linux_amd64.tar.gz && cd gonelist_linux_amd64
 $ ./gonelist_linux_amd64
 ```
@@ -52,14 +54,16 @@ $ ./gonelist_linux_amd64
 ## docker运行
 视频教程 https://www.bilibili.com/video/BV1Vz4y1R7EK/
 
-直接使用项目的`docker-compose.yml`去`docker-compose up -d`即可，建议把配置文件放在一个文件夹里，把文件夹挂载进去。否则直挂文件docker挂载的是inode
+直接使用项目的`docker-compose.yml`去`docker-compose up -d`即可，建议把配置文件放在一个文件夹里，把文件夹挂载进去，否则直挂文件docker挂载的是inode。
+如果是群晖的docker上运行的话会不支持docker的command似乎，可以把配置文件的目录挂载到容器里，例如`/etc/config`，创建容器的时候加上环境变量`CONF_PATH=/etc/config/config.json`。
+token_path写`/etc/config/`，然后创建容器的最后地方的`Entrypoint`和`命令`空着
 ```
 .
 ├── config
 │   └── config.json
 └── docker-compose.yml
 ```
-配置文件最好是切到对应的tag那去下载，容器的话配置文件的`dist_path`值得改为`/etc/dist/`
+
 
 ## config.json
 
@@ -72,7 +76,10 @@ $ ./gonelist_linux_amd64
   "redirect_url": "http://localhost:8000/auth",
   // 设置一个自己喜欢的字符串
   "state": "23333",
-  "china_cloud": false,
+  // token 的路径，推荐默认
+  "token_path": "",
+  // 下载链接重定向前缀
+  "download_redirect_prefix": "",
   "server": {
     // 监听的端口
     "port": 8000,
@@ -86,7 +93,20 @@ $ ./gonelist_linux_amd64
     "dist_path": "./dist/",
     // 是否绑定到 0.0.0.0
     "bind_global": true
-  }
+  },
+  // 世纪互联设置
+  "china_cloud": {
+    "enable": false,
+    "client_id": "2b54b127-b403-42a3-8b55-d25f3119aa13",
+    "client_secret": "a0CGqBT3f_8U5gztxKjxR-LNW-ZnTe.m"
+  },
+  // 给文件夹设置密码，相比此方法，更加建议直接在文件夹下的创建 .password 设置密码
+  "pass_list": [
+    {
+      "path": "",
+      "pass": ""
+    }
+  ]
 }
 ```
 

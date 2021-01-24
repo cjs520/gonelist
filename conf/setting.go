@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gonelist/pkg/file"
 	"os"
+	"path"
 	"strings"
 	"time"
 )
@@ -54,13 +55,14 @@ type UserSetting struct {
 	RedirectURL  string `json:"redirect_url"`
 	State        string `json:"state"` // 用户设置的标识
 	// 获取 access_token
-	ClientSecret string `json:"client_secret"`
-	Code         string `json:"-"`          // 服务器收到的中间内容
-	GrantType    string `json:"-"`          // 值为 authorization_code
-	Scope        string `json:"-"`          // 值为 offline_access files.readwrite.all
-	AccessToken  string `json:"-"`          // 令牌
-	RefreshToken string `json:"-"`          // 刷新令牌
-	TokenPath    string `json:"token_path"` // token 文件位置
+	ClientSecret           string `json:"client_secret"`
+	Code                   string `json:"-"`                        // 服务器收到的中间内容
+	GrantType              string `json:"-"`                        // 值为 authorization_code
+	Scope                  string `json:"-"`                        // 值为 offline_access files.readwrite.all
+	AccessToken            string `json:"-"`                        // 令牌
+	RefreshToken           string `json:"-"`                        // 刷新令牌
+	TokenPath              string `json:"token_path"`               // token 文件位置
+	DownloadRedirectPrefix string `json:"download_redirect_prefix"` // 下载重定向前缀
 	// 世纪互联
 	ChinaCloud *ChinaCloud `json:"china_cloud"`
 	// 用户设置
@@ -78,6 +80,11 @@ func LoadUserConfig(configPath string) error {
 	if len(configPath) == 0 {
 		return errors.New("配置文件名不能为空")
 	}
+	envValue := os.Getenv("CONF_PATH")
+
+	if envValue != "" {
+		configPath = envValue
+	}
 
 	log.Infof("当前使用的配置文件为:%s", configPath)
 
@@ -94,6 +101,9 @@ func LoadUserConfig(configPath string) error {
 	if UserSet.PassList == nil {
 		UserSet.PassList = defaultPassListSetting
 	}
+	if UserSet.Server.FolderSub == "" {
+		UserSet.Server.FolderSub = "/"
+	}
 	// ChinaCloud 设置
 	if UserSet.ChinaCloud == nil {
 		UserSet.ChinaCloud = defaultChinaCloudSetting
@@ -102,6 +112,11 @@ func LoadUserConfig(configPath string) error {
 	// 否则 token 将保存在用户 config.json 所在的目录
 	if UserSet.TokenPath == "" {
 		UserSet.TokenPath = GetTokenPath(configPath)
+	} else {
+		//用户一般写目录，此处转成文件
+		if !strings.HasSuffix(UserSet.TokenPath, ".token") {
+			UserSet.TokenPath = path.Join(UserSet.TokenPath, ".token")
+		}
 	}
 	log.Info("成功导入用户配置")
 	return nil

@@ -9,19 +9,40 @@ import (
 )
 
 // 初始化登陆状态
+// 如果初始化时获取失败直接退出
+// 如果在自动刷新时失败给出 error 警告，见 onedrive/timer.go
 func InitOnedive() {
 	// 获取文件内容和初始化 README 缓存
-	if _, err := GetAllFiles(); err != nil {
-		log.Fatal(err)
-	}
-	if err := RefreshREADME(); err != nil {
-		log.Fatal(err)
+	err := RefreshOnedriveAll()
+	if err != nil {
+		log.WithField("err", err).Fatal("InitOnedrive 出现错误")
 	}
 	// 设置 onedrive 登陆状态
 	FileTree.SetLogin(true)
 	cacheGoOnce.Do(func() {
 		go SetAutoRefresh()
 	})
+}
+
+// 刷新所有 onedrive 的内容
+// 包括 文件列表，README，password，搜索索引
+func RefreshOnedriveAll() error {
+	log.Info("开始刷新文件缓存")
+	if _, err := GetAllFiles(); err != nil { // 获取所有文件并且刷新树结构
+		log.WithField("err", err).Error("刷新文件缓存遇到错误")
+		return err
+	}
+	log.Infof("结束刷新文件缓存")
+	log.Debug(FileTree)
+
+	log.Info("开始刷新 README 缓存")
+	if err := RefreshREADME(); err != nil {
+		log.WithField("err", err).Error("刷新 README 缓存遇到错误")
+		return err
+	}
+	log.Info("结束刷新 README 缓存")
+	// 构建搜索
+	return nil
 }
 
 // 从缓存获取某个路径下的所有内容
@@ -81,11 +102,11 @@ func CopyFileNode(node *FileNode) *FileNode {
 	if node == nil {
 		return nil
 	}
-	path := GetReplacePath(node.Path)
+	//path := GetReplacePath(node.Path)
 
 	return &FileNode{
 		Name:           node.Name,
-		Path:           path,
+		Path:           node.Path,
 		IsFolder:       node.IsFolder,
 		DownloadUrl:    node.DownloadUrl,
 		LastModifyTime: node.LastModifyTime,
@@ -97,8 +118,9 @@ func CopyFileNode(node *FileNode) *FileNode {
 
 func GetDownloadUrl(filePath string) (string, error) {
 	var (
-		fileInfo *FileNode
-		err      error
+		fileInfo    *FileNode
+		err         error
+		downloadUrl string
 	)
 
 	if fileInfo, err = CacheGetPathList(filePath); err != nil || fileInfo == nil || fileInfo.IsFolder == true {
@@ -109,7 +131,10 @@ func GetDownloadUrl(filePath string) (string, error) {
 		return "", err
 	}
 
-	return fileInfo.DownloadUrl, nil
+	// 如果有重定向前缀，就加上
+	downloadUrl = conf.UserSet.DownloadRedirectPrefix + fileInfo.DownloadUrl
+
+	return downloadUrl, nil
 }
 
 // 替换路径

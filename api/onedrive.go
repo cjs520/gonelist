@@ -19,23 +19,23 @@ func MGGetFileTree(c *gin.Context) {
 		app.Response(c, http.StatusOK, e.MG_ERROR, nil)
 		return
 	}
+	onedrive.RefreshREADME()
 
 	str, _ := json.Marshal(root)
 	log.Debug("*root", string(str))
 
-	app.Response(c, http.StatusOK, e.SUCCESS, root)
+	app.Response(c, http.StatusOK, e.SUCCESS, "已刷新缓存")
 }
 
 // 获取对应路径的文件
 func CacheGetPath(c *gin.Context) {
 	oPath := c.Query("path")
-	pass := c.GetHeader("pass")
 
 	root, err := onedrive.CacheGetPathList(oPath)
 	if err != nil {
 		app.Response(c, http.StatusOK, e.ITEM_NOT_FOUND, nil)
-	} else if root.Password != "" && pass != root.Password {
-		app.Response(c, http.StatusOK, e.PASS_ERROR, nil)
+	} else if root == nil {
+		app.Response(c, http.StatusOK, e.LOAD_NOT_READY, nil)
 	} else {
 		app.Response(c, http.StatusOK, e.SUCCESS, root)
 	}

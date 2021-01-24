@@ -3,9 +3,12 @@ package onedrive
 import (
 	"encoding/json"
 	"errors"
-	log "github.com/sirupsen/logrus"
+	"gonelist/onedrive/internal"
+	"gonelist/onedrive/normal_index"
 	"sync"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type ErrJson struct {
@@ -122,11 +125,20 @@ type FileNode struct {
 
 // Answer 是请求接口返回内容，里面包含的 Value 是一个列表
 func ConvertAnsToFileNodes(oldPath string, ans Answer) []*FileNode {
-	var list []*FileNode
+	var (
+		list []*FileNode
+		path string
+	)
+
 	for _, item := range ans.Value {
+		if oldPath == "/" {
+			path = oldPath + item.Name
+		} else {
+			path = oldPath + "/" + item.Name
+		}
 		node := &FileNode{
 			Name:           item.Name,
-			Path:           oldPath + "/" + item.Name,
+			Path:           path,
 			LastModifyTime: item.FileSystemInfo.LastModifiedDateTime,
 			DownloadUrl:    item.MicrosoftGraphDownloadURL,
 			IsFolder:       false,
@@ -146,9 +158,13 @@ type Tree struct {
 	root       *FileNode
 	isLogin    bool
 	FirstReady int
+	Index      internal.Index
+	NewIndex   internal.Index
 }
 
-var FileTree = &Tree{}
+var FileTree = &Tree{
+	//Index: normal_index.NewNIndex(),
+}
 
 func (t *Tree) SetLogin(status bool) {
 	t.Lock()
@@ -173,4 +189,39 @@ func (t *Tree) SetRoot(root *FileNode) {
 	defer t.Unlock()
 
 	t.root = root
+}
+
+// 搜索索引相关
+func (t *Tree) SetIndex() {
+	t.NewIndex = normal_index.NewNIndex()
+	t.dfsIndexTree(t.root)
+
+	log.Debug(t.NewIndex)
+	t.Index = t.NewIndex
+	t.NewIndex = nil
+}
+
+func (t *Tree) dfsIndexTree(f *FileNode) {
+	t.NewIndex.Insert(f.Name, internal.Item{
+		Path:     f.Path,
+		IsFolder: f.IsFolder,
+	})
+
+	// 如果不是文件夹或者是一个加密的文件夹
+	// 那么直接退出
+	if !f.IsFolder || f.PasswordUrl != "" {
+		return
+	}
+
+	//if strings.Contains(t.Name, "加密") {
+	//	log.Info(t.Name)
+	//}
+
+	for _, child := range f.Children {
+		// 如果该文件夹加密，则直接退出
+		if child.Name == ".password" {
+			return
+		}
+		t.dfsIndexTree(child)
+	}
 }
