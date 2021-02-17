@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	cors "github.com/rs/cors/wrapper/gin"
@@ -12,12 +13,19 @@ import (
 func InitRouter() *gin.Engine {
 
 	r := gin.New()
+	// 对于 router 中多个斜杠（slash）进行兼容
+	// 如 /ping //ping 是同一个接口
+	r.RemoveExtraSlash = true
 
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 	r.Use(cors.New(cors.Options{
 		AllowedHeaders: []string{"pass"}, // 允许 header
 	}))
+
+	if conf.UserSet.Server.Gzip == true {
+		r.Use(gzip.Gzip(gzip.DefaultCompression))
+	}
 
 	r.Use(static.Serve("/", static.LocalFile(conf.GetDistPATH(), false)))
 
